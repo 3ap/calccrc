@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      .container
+      {
+        display: flex;
+        justify-content: center;
+      }
+      .center
+      {
+        width: 400px;
+      }
+      #input
+      {
+        width: 100%;
+        height: 100px;
+      }
+      #results
+      {
+        width: 100%;
+      }
+      #results thead
+      {
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <script type='text/javascript'>
+      var Module = { }
+      window.stdoutCallback = () => {}
+      Module["noInitialRun"] = true;
+      Module["printErr"] = Module["print"] = (text) => { window.stdoutCallback(text); }
+    </script>
+    <script src="reveng.js" async></script>
+
+    <div class="container">
+      <div class="center">
+        <textarea id="input"></textarea>
+        <table id="results">
+          <thead>
+            <tr><th>Algorithm</th><th>Result</th> </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var presets = [
+        "CRC-16/ARC",
+        "CRC-16/AUG-CCITT",
+        "CRC-16/BUYPASS",
+        "CRC-16/CCITT-FALSE",
+        "CRC-16/CDMA2000",
+        "CRC-16/DDS-110",
+        "CRC-16/DECT-R",
+        "CRC-16/DECT-X",
+        "CRC-16/DNP",
+        "CRC-16/EN-13757",
+        "CRC-16/GENIBUS",
+        "CRC-16/KERMIT",
+        "CRC-16/MAXIM",
+        "CRC-16/MCRF4XX",
+        "CRC-16/MODBUS",
+        "CRC-16/RIELLO",
+        "CRC-16/T10-DIF",
+        "CRC-16/TELEDISK",
+        "CRC-16/TMS37157",
+        "CRC-16/USB",
+        "CRC-16/X-25",
+        "CRC-16/XMODEM",
+        "CRC-A"
+      ];
+
+      let html = "";
+      presets.forEach((model) => html += `<tr><td>${model}</td><td id="${model}"></td></tr>`);
+      document.getElementsByTagName("tbody")[0].innerHTML = html;
+
+      function calccrc(model, data, callback)
+      {
+          window.stdoutCallback = callback
+          Module.ccall("calccrc", "number", ["string", "string"], [model, data])
+      }
+
+      document.getElementById("input").onkeyup = () =>
+      {
+          const data = document.getElementById("input").value
+          presets.forEach((model) => calccrc(model, data, (result) => { document.getElementById(model).innerText = result }))
+      }
+    </script>
+  </body>
+</html>
