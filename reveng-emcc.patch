@@ -1,0 +1,124 @@
+From 6b4de8fd1f5fea4881a9ede3fe72785e9d2d055e Mon Sep 17 00:00:00 2001
+From: Sergey Nazaryev <sergey@nazaryev.com>
+Date: Sat, 20 Jan 2024 19:25:05 +0200
+Subject: [PATCH] EMCC patch
+
+---
+ Makefile | 38 +++++---------------------------------
+ cli.c    | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+), 33 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 8685004..7f2911d 100755
+--- a/Makefile
++++ b/Makefile
+@@ -24,43 +24,22 @@
+ # The bmptst and pretst invocations are Bourne shell command lines.
+ SHELL = /bin/sh
+ # C compiler and flags.  Adjust to taste.
+-CC = gcc
++CC = emcc
+ CFLAGS = -O3 -Wall -ansi -fomit-frame-pointer
+ # Binary optimiser
+ STRIP = strip
+ SFLAGS = --strip-unneeded
+ # Shell commands
+ RM = rm
+-TOUCH = touch
+ FALSE = false
+ # Executable extension
+-EXT = .exe
+ 
+ # Target executable
+-EXE = reveng
++EXE = reveng.html
+ # Target objects
+ TARGETS = bmpbit.o cli.o model.o poly.o preset.o reveng.o
+ # Header files
+ HEADERS = config.h reveng.h
+-# Pre-compiled executables and generated files
+-BINS = bin/armtubeos/reveng \
+-       bin/armtubeos/reveng$(EXT) \
+-       bin/i386-linux/reveng \
+-       bin/i386-linux/reveng$(EXT) \
+-       bin/raspbian/reveng \
+-       bin/raspbian/reveng$(EXT) \
+-       bin/riscos/reveng \
+-       bin/riscos/reveng$(EXT) \
+-       bin/win32/reveng \
+-       bin/win32/reveng$(EXT) \
+-       bmptst \
+-       bmptst$(EXT) \
+-       pretst \
+-       pretst$(EXT) \
+-       reveng \
+-       reveng$(EXT) \
+-       reveng.res \
+-       core
+ 
+ # CRC RevEng will compile without macros, but these may be useful:
+ # Add -DBMPMACRO to use bitmap size constant macros (edit config.h)
+@@ -76,20 +55,13 @@ MACROS = -DPRESETS
+ all: $(EXE)
+ 
+ $(EXE): $(TARGETS)
+-	$(MAKE) bmptst
+-	$(CC) $(CFLAGS) -o $@ $+
+-	-$(STRIP) $(SFLAGS) $@ $@$(EXT)
++	$(CC) $(CFLAGS) -o $@ $+ -s NO_EXIT_RUNTIME=1 -s "EXPORTED_RUNTIME_METHODS=['ccall']"
+ 
+-%.o: %.c $(HEADERS) bmptst
++%.o: %.c $(HEADERS)
+ 	$(CC) $(CFLAGS) $(MACROS) -c $<
+ 
+-bmptst: bmpbit.c $(HEADERS)
+-	$(CC) $(CFLAGS) $(MACROS) -DBMPTST -o $@ $<
+-	( ./$@ && $(TOUCH) $@ ) || ( $(RM) $@ $@$(EXT) && $(FALSE) )
+-
+ pretst: bmpbit.c model.c poly.c preset.c $(HEADERS)
+ 	$(CC) $(CFLAGS) $(MACROS) -DPRETST -o $@ bmpbit.c model.c poly.c preset.c
+-	( ./$@ && $(TOUCH) $@ ) || ( $(RM) $@ $@$(EXT) && $(FALSE) )
+ 
+ clean:
+-	-$(RM) $(EXE) $(EXE)$(EXT) $(TARGETS) $(BINS)
++	-$(RM) -f $(EXE) $(TARGETS)
+diff --git a/cli.c b/cli.c
+index debcb00..dc95a10 100644
+--- a/cli.c
++++ b/cli.c
+@@ -677,3 +677,32 @@ usage(void) {
+ 			VERSION
+ 			"\t\t\t\t  <https://reveng.sourceforge.io/>\n");
+ }
++
++#include "emscripten.h"
++EMSCRIPTEN_KEEPALIVE int
++calccrc(char *mname, char *data)
++{
++	model_t model = MZERO;
++	poly_t apoly;
++	poly_t crc;
++	int ibperhx = 8;
++	int obperhx = 8;
++	char *string;
++
++	if(!mbynam(&model, mname)) {
++		fprintf(stderr,"preset model '%s' not found", mname);
++		return 1;
++	}
++
++	apoly = strtop(data, model.flags, ibperhx);
++	crc = pcrc(apoly, model.spoly, model.init, model.xorout, model.flags, 0);
++
++	string = ptostr(crc, model.flags, obperhx);
++	puts(string);
++	free(string);
++
++	pfree(&crc);
++	pfree(&apoly);
++	mfree(&model);
++	return 0;
++}
+-- 
+2.43.0
+
