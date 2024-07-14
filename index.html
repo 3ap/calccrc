@@ -49,7 +49,7 @@
     </div>
 
     <script type="text/javascript">
-      var presets = [
+      const crcs = [
         "CRC-16/ARC",
         "CRC-16/AUG-CCITT",
         "CRC-16/BUYPASS",
@@ -75,20 +75,54 @@
         "CRC-A"
       ];
 
+      /* in C it would be `uint8_t x = ...; return 0-x;` */
+      const zeroMinusX = (x) => (((~x) & 0xFF)+1)&0xFF
+      const checksums =
+      {
+          "CS0": (arr) => arr.reduce((acc, cur) => acc + cur) & 0xFF,
+          "CS1": (arr) => zeroMinusX(arr.reduce((acc, cur) => acc + cur) & 0xFF),
+          "CS2": (arr) => arr.reduce((acc, cur) => acc ^ cur) ^ 0xFF,
+          "CS3": (arr) => (((arr.reduce((acc, cur) => acc + cur) & 0xFF) ^ 0xFF) + 1) & 0xFF,
+          "CS4": (arr) => arr.reduce((acc, cur) => acc ^ cur),
+          "CS5": (arr) => (~arr.reduce((acc, cur) => acc ^ cur)) & 0xFF
+      };
+
       let html = "";
-      presets.forEach((model) => html += `<tr><td>${model}</td><td id="${model}"></td></tr>`);
+
+      crcs.forEach((model) => html += `<tr><td>${model}</td><td id="${model}"></td></tr>`);
+      Object.entries(checksums).forEach(([model, impl]) => html += `<tr><td>${model}</td><td id="${model}"></td></tr>`);
+
       document.getElementsByTagName("tbody")[0].innerHTML = html;
 
-      function calccrc(model, data, callback)
+      const fromHexString = (hexString) =>
+          Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
+
+      const toHexString = (bytes) =>
+          bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+
+      const isHex = (maybeHex) =>
+          maybeHex.length !== 0 && maybeHex.length % 2 === 0 && !/[^a-fA-F0-9]/u.test(maybeHex);
+
+      const calccrc = (model, data, callback) =>
       {
           window.stdoutCallback = callback
           Module.ccall("calccrc", "number", ["string", "string"], [model, data])
       }
 
+      const calccs = (model, arr, callback) =>
+          callback(checksums[model](arr).toString(16).padStart(2, '0'))
+
       document.getElementById("input").onkeyup = () =>
       {
-          const data = document.getElementById("input").value
-          presets.forEach((model) => calccrc(model, data, (result) => { document.getElementById(model).innerText = result }))
+          const data = document.getElementById("input").value.replace(/\s/g,'')
+          const arr = fromHexString(data)
+
+          const putResult = (result, model) => document.getElementById(model).innerText = result.toUpperCase()
+          if (isHex(data))
+          {
+              crcs.forEach((model) => calccrc(model, data, (result) => putResult(result, model)))
+              Object.entries(checksums).forEach(([model, impl]) => calccs(model, arr, (result) => putResult(result, model)))
+          }
       }
     </script>
   </body>
